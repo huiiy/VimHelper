@@ -1,0 +1,20 @@
+{
+    "manifest_version": 2,
+    "name": "VimHelper",
+    "version": "1.0",
+
+    "description": "Suggest efficent vim motions in LeetCode Vim editor",
+
+    "icons": 
+    {
+        "96": "icons/VimHelper.png"
+    },
+
+    "content_scripts": 
+    [
+        {
+            "matches": ["*://*.leetcode.com/problems/*"],
+            "js": ["VimHelper.js"]
+        }
+    ]
+}
