@@ -1,65 +1,129 @@
-console.log("The extension is up and running");
+console.log("VimHelper is up and running! (v4 - with getComputedStyle)");
 
-// Function to create and display the suggestion box
-function createSuggestionBox() {
-  const suggestionBox = document.createElement("div");
-  suggestionBox.id = "vim-helper-suggestion-box";
+let keypressHistory = "";
+const MOTION_THRESHOLD = 3; // Trigger suggestion after 3 repeated keys
 
-  // Apply dynamic and interactive styles
-  suggestionBox.style.position = "fixed";
-  suggestionBox.style.top = "5vh";
-  suggestionBox.style.right = "5vw";
-  suggestionBox.style.width = "25vw";
-  suggestionBox.style.height = "30vh";
-  suggestionBox.style.backgroundColor = "rgba(255, 255, 255, 0.8)";
-  suggestionBox.style.border = "2px solid #ccc";
-  suggestionBox.style.borderRadius = "8px";
-  suggestionBox.style.padding = "10px";
-  suggestionBox.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.1)";
-  suggestionBox.style.zIndex = "9999";
-  suggestionBox.style.resize = "both";
-  suggestionBox.style.overflow = "auto";
-  suggestionBox.style.minWidth = "10px"; // Prevents the box from being resized too small
-  suggestionBox.style.minHeight = "10px"; // Prevents the box from being resized too small
-  suggestionBox.style.color = "#000"
-
-  // Add the drag handle and content
-  suggestionBox.innerHTML = `
-    <h3 id="vim-helper-drag-handle" style="cursor: move; color: #000; margin: -10px; padding: 10px; border-bottom: 1px solid #333;">VimHelper Suggestions</h3>
-    <div style="margin-top: 10px;">
-        <p>This is where your Vim motion suggestions will appear.</p>
-        <p>Drag the box using the header. Resize it using the bottom-right corner.</p>
-    </div>
-  `;
-
-  document.body.appendChild(suggestionBox);
-
-  // Add dragging functionality to the header handle only
-  const dragHandle = document.getElementById("vim-helper-drag-handle");
-  let isDragging = false;
-  let offsetX, offsetY;
-
-  dragHandle.addEventListener("mousedown", (e) => {
-    isDragging = true;
-    offsetX = e.clientX - suggestionBox.getBoundingClientRect().left;
-    offsetY = e.clientY - suggestionBox.getBoundingClientRect().top;
-    suggestionBox.style.transition = "none"; // Disable smooth transition while dragging
-    e.preventDefault(); // Prevents text selection on the header
-  });
-
-  document.addEventListener("mousemove", (e) => {
-    if (isDragging) {
-      suggestionBox.style.left = `${e.clientX - offsetX}px`;
-      suggestionBox.style.top = `${e.clientY - offsetY}px`;
-      suggestionBox.style.right = "auto";
-      suggestionBox.style.bottom = "auto";
+/**
+ * Checks the keypress history for inefficient patterns and updates the suggestion box.
+ */
+function checkForInefficientMotion() {
+    if (keypressHistory.length < MOTION_THRESHOLD) {
+        return;
     }
-  });
 
-  document.addEventListener("mouseup", () => {
-    isDragging = false;
-    suggestionBox.style.transition = "top 0.3s ease, left 0.3s ease";
-  });
+    const lastChar = keypressHistory.slice(-1);
+    // Check if the last N characters are all the same
+    if (keypressHistory === lastChar.repeat(MOTION_THRESHOLD)) {
+        let suggestion = "";
+        switch (lastChar) {
+            case "h":
+                suggestion = `Try using 'b' to move back a word or '0' to go to the start of the line.`;
+                break;
+            case "j":
+                suggestion = `Consider using '}' to jump to the next paragraph or a specific line number with 'G'.`;
+                break;
+            case "k":
+                suggestion = `Consider using '{' to jump to the previous paragraph or a specific line number with 'G'.`;
+                break;
+            case "l":
+                suggestion = `Try using 'w' to move to the next word, 'e' to the end of the word, or '$' to the end of the line.`;
+                break;
+            default:
+                return;
+        }
+
+        const suggestionContent = document.querySelector("#vim-helper-content");
+        if (suggestionContent) {
+            console.log(`Suggestion: Inefficient motion detected ('${keypressHistory}'). Updating dialog box.`);
+            suggestionContent.innerHTML = `<p style='color: #D9534F;'><strong>Inefficient Motion:</strong> ${keypressHistory}</p><p>${suggestion}</p>`;
+        }
+        keypressHistory = ""; // Reset after showing a suggestion
+    }
 }
 
-createSuggestionBox();
+/**
+ * Creates the suggestion box UI.
+ */
+function createSuggestionBox() {
+    if (document.getElementById("vim-helper-suggestion-box")) return;
+
+    const suggestionBox = document.createElement("div");
+    suggestionBox.id = "vim-helper-suggestion-box";
+    suggestionBox.style.cssText = 'position: fixed; top: 5vh; right: 5vw; width: 25vw; min-height: 100px; padding: 10px; background-color: rgba(255, 255, 255, 0.9); border: 1px solid #ccc; border-radius: 8px; z-index: 9999; color: #000; box-shadow: 0 4px 8px rgba(0,0,0,0.2); resize: both; overflow: auto;';
+
+    suggestionBox.innerHTML = `
+    <h3 id="vim-helper-drag-handle" style="margin:-10px -10px 10px -10px; padding:10px; color: #000; border-bottom:1px solid #ccc; cursor: move;">VimHelper Suggestions</h3>
+    <div id="vim-helper-content">
+        <p>Suggestions will appear here when inefficient motions are detected.</p>
+    </div>
+  `;
+    document.body.appendChild(suggestionBox);
+
+    // Drag and drop functionality
+    const dragHandle = document.getElementById("vim-helper-drag-handle");
+    let isDragging = false,
+        offsetX, offsetY;
+
+    dragHandle.addEventListener("mousedown", (e) => {
+        isDragging = true;
+        const rect = suggestionBox.getBoundingClientRect();
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+        suggestionBox.style.transition = 'none';
+        e.preventDefault();
+    });
+
+    document.addEventListener("mousemove", (e) => {
+        if (isDragging) {
+            suggestionBox.style.left = `${e.clientX - offsetX}px`;
+            suggestionBox.style.top = `${e.clientY - offsetY}px`;
+        }
+    });
+
+    document.addEventListener("mouseup", () => {
+        isDragging = false;
+        suggestionBox.style.transition = 'top 0.3s ease, left 0.3s ease';
+    });
+}
+
+
+// --- Main Execution ---
+setTimeout(() => {
+    const editor = document.querySelector('.monaco-editor');
+    if (!editor) {
+        console.error("VimHelper Error: Monaco editor not found.");
+        return;
+    }
+
+    createSuggestionBox();
+
+    editor.addEventListener('keydown', (e) => {
+        const cursor = editor.querySelector('.cursor');
+        if (!cursor || e.key.length > 1) { // Ignore non-character keys (like Shift, Ctrl, etc.)
+            return;
+        }
+
+        // Use getComputedStyle for a reliable way to get the rendered width
+        const computedStyle = window.getComputedStyle(cursor);
+        const cursorWidth = parseInt(computedStyle.width, 10);
+
+        console.log(`Key pressed: ${e.key}, Cursor width: ${cursorWidth}px`);
+
+        // Normal mode cursor is wide (>5px), Insert mode is narrow (<3px).
+        const isNormalMode = cursorWidth > 5;
+
+        if (isNormalMode) {
+            keypressHistory += e.key;
+            // Trim history to the required length
+            if (keypressHistory.length > MOTION_THRESHOLD) {
+                keypressHistory = keypressHistory.slice(1);
+            }
+            console.log(`Normal Mode Detected. History: "${keypressHistory}"`);
+            checkForInefficientMotion();
+        } else {
+            // If we are not in normal mode, clear the history.
+            keypressHistory = "";
+        }
+    }, true); // Use capture phase to get the event early
+
+}, 2000);
